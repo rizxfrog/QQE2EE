@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">NekoCrypt</string>
+    <string name="app_name">QQE2EE</string>
 
     <!--    闲杂信息-->
     <string name="ok">原来是这样，现在我完全搞懂了</string>
@@ -79,7 +79,7 @@
     <string name="setting_decryption_mode_info_desc">标准模式：\n点击密文弹出悬浮窗显示解密结果。\n\n沉浸模式：\n无需点击，直接以悬浮窗显示解密后的密文，但会增加一定耗电量。</string>
 
     <!--    通知栏显示文本-->
-    <string name="notification_title">NekoCrypt 喵密服务运行中</string>
+    <string name="notification_title">QQE2EE 喵密服务运行中</string>
     <string name="set_text_failed">密文设置失败喵！可能是字数过多喵… (｡◕ˇ‸ˇ◕｡)：%d 字</string>
 
     <!--    权限检查相关-->
@@ -90,7 +90,7 @@
     <string name="permission_still_missing_text">喵密检测到悬浮窗权限仍未开启。别担心，这是因为各大手机厂商有更高的悬浮窗权限控制。\n\n请在接下来打开的应用设置页面中，手动找到并开启“悬浮窗”或“显示在其他应用上层”的相关权限。</string>
     <!--    下面这两条暂时用不着-->
     <string name="permission_accessibility_title">需要无障碍服务</string>
-    <string name="permission_accessibility_text">为了实现自动加解密和读取聊天内容，请在设置列表中找到“NekoCrypt”并开启它的无障碍服务。</string>
+    <string name="permission_accessibility_text">为了实现自动加解密和读取聊天内容，请在设置列表中找到“QQE2EE”并开启它的无障碍服务。</string>
     <!--    设置-->
     <string name="crypto_settings">加解密设置</string>
     <string name="decryption_long_press_delay">长按解密延时</string>
@@ -98,10 +98,10 @@
     <string name="decryption_window_show_time">解密密文展示时长</string>
     <string name="decryption_window_show_time_desc">设置解密密文悬浮窗的显示时间</string>
     <string name="about">关于</string>
-    <string name="about_dialog_title">关于NekoCrypt</string>
+    <string name="about_dialog_title">关于QQE2EE</string>
     <string name="version">软件版本：%s</string>
     <string name="github">Github 项目地址</string>
-    <string name="about_dialog_content">NekoCrypt (喵密) 是一款方便好用的全局APP加解密软件！(ฅ´ω`ฅ)\n\n双击输入框可以拉起附件发送界面哦！✨\n\n如果您喜欢本软件，请到Github项目主页为我点上一个Star吧！ପ(๑•̀ㅂ•́)و✧\n\n本项目仅供学习交流，任何法律问题均需用户自行负责哦~ ( •̀ ω •́ )✧ 使用NekoCrypt即表示您同意该条款。\n\n    ——Made by WJZ_P with love❤️.</string>
+    <string name="about_dialog_content">QQE2EE (喵密) 是一款方便好用的全局APP加解密软件！(ฅ´ω`ฅ)\n\n双击输入框可以拉起附件发送界面哦！✨\n\n如果您喜欢本软件，请到Github项目主页为我点上一个Star吧！ପ(๑•̀ㅂ•́)و✧\n\n本项目仅供学习交流，任何法律问题均需用户自行负责哦~ ( •̀ ω •́ )✧ 使用QQE2EE即表示您同意该条款。\n\n    ——Made by WJZ_P with love❤️.</string>
     <!--    设置：界面相关-->
     <string name="crypto_ui_settings">功能界面设置</string>
     <string name="decryption_window_position_update_delay">弹窗位置更新延时</string>

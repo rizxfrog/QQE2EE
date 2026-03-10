@@ -20,7 +20,7 @@
     </queries>
 
     <application
-        android:name=".NekoCryptApp"
+        android:name=".QQE2EEApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -28,13 +28,13 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.NekoCrypt"
+        android:theme="@style/Theme.QQE2EE"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="33">
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.NekoCrypt">
+            android:theme="@style/Theme.QQE2EE">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

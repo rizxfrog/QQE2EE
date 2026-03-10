@@ -29,29 +29,29 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import me.wjz.nekocrypt.AppRegistry
-import me.wjz.nekocrypt.Constant
-import me.wjz.nekocrypt.Constant.SCAN_RESULT
-import me.wjz.nekocrypt.CryptoMode
-import me.wjz.nekocrypt.NekoCryptApp
-import me.wjz.nekocrypt.R
-import me.wjz.nekocrypt.SettingKeys
-import me.wjz.nekocrypt.hook.observeAsState
-import me.wjz.nekocrypt.service.KeepAliveService
-import me.wjz.nekocrypt.service.handler.ChatAppHandler
-import me.wjz.nekocrypt.ui.activity.FoundNodeInfo
-import me.wjz.nekocrypt.ui.activity.MessageListScanResult
-import me.wjz.nekocrypt.ui.activity.ScanResult
-import me.wjz.nekocrypt.ui.activity.ScannerDialogActivity
-import me.wjz.nekocrypt.ui.theme.NekoCryptTheme
-import me.wjz.nekocrypt.util.NCWindowManager
-import me.wjz.nekocrypt.util.isSystemApp
+import me.fuckqq.e2ee.AppRegistry
+import me.fuckqq.e2ee.Constant
+import me.fuckqq.e2ee.Constant.SCAN_RESULT
+import me.fuckqq.e2ee.CryptoMode
+import me.fuckqq.e2ee.QQE2EEApp
+import me.fuckqq.e2ee.R
+import me.fuckqq.e2ee.SettingKeys
+import me.fuckqq.e2ee.hook.observeAsState
+import me.fuckqq.e2ee.service.KeepAliveService
+import me.fuckqq.e2ee.service.handler.ChatAppHandler
+import me.fuckqq.e2ee.ui.activity.FoundNodeInfo
+import me.fuckqq.e2ee.ui.activity.MessageListScanResult
+import me.fuckqq.e2ee.ui.activity.ScanResult
+import me.fuckqq.e2ee.ui.activity.ScannerDialogActivity
+import me.fuckqq.e2ee.ui.theme.QQE2EETheme
+import me.fuckqq.e2ee.util.NCWindowManager
+import me.fuckqq.e2ee.util.isSystemApp
 
 class MyAccessibilityService : AccessibilityService() {
     companion object {
         //  这里设置service的信号。
-        const val ACTION_SHOW_SCANNER = "me.wjz.nekocrypt.service.ACTION_SHOW_SCANNER"
-        const val ACTION_HIDE_SCANNER = "me.wjz.nekocrypt.service.ACTION_HIDE_SCANNER"
+        const val ACTION_SHOW_SCANNER = "me.fuckqq.QQE2EE.service.ACTION_SHOW_SCANNER"
+        const val ACTION_HIDE_SCANNER = "me.fuckqq.QQE2EE.service.ACTION_HIDE_SCANNER"
     }
 
     val tag = "NekoAccessibility"
@@ -64,7 +64,7 @@ class MyAccessibilityService : AccessibilityService() {
 
     // 获取App里注册的dataManager实例
     private val dataStoreManager by lazy {
-        (application as NekoCryptApp).dataStoreManager
+        (application as QQE2EEApp).dataStoreManager
     }
 
     // ——————————————————————————扫描悬浮窗相关——————————————————————————
@@ -291,7 +291,7 @@ class MyAccessibilityService : AccessibilityService() {
                 modifier = Modifier.size(64.dp),
                 contentAlignment = Alignment.Center
             ) {
-                NekoCryptTheme(darkTheme = false) {
+                QQE2EETheme(darkTheme = false) {
                     FloatingActionButton(
                         onClick = {handleScanScreen()},
                         shape = CircleShape,

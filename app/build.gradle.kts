@@ -7,18 +7,18 @@ plugins {
 }
 
 android {
-    namespace = "me.wjz.nekocrypt"
+    namespace = "me.fuckqq.e2ee"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "me.wjz.nekocrypt"
+        applicationId = "me.fuckqq.e2ee"
         minSdk = 26
         targetSdk = 35
         versionCode = 13    // 唯一版本识别码，每次打包记得+1！！
         versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
+//        setProperty("archivesBaseName", "QQE2EE-v$versionName")
     }
 
     buildTypes {
@@ -34,11 +34,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true

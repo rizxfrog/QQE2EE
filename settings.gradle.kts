@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NekoCrypt"
+rootProject.name = "QQE2EE"
 include(":app")
