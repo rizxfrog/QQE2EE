@@ -21,4 +21,6 @@ class QQHandler : BaseChatAppHandler() {
 
     override val messageTextId: String get() = ID_MESSAGE_TEXT
     override val messageListClassName: String get() = CLASS_NAME_RECYCLER_VIEW
+    override fun getAppDisplayName(): String = APP_NAME
+    override fun getIgnoredChatPartnerTexts(): Set<String> = setOf(APP_NAME)
 }

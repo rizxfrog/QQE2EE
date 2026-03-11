@@ -1068,32 +1068,22 @@ abstract class BaseChatAppHandler : ChatAppHandler {
      */
   private fun updateChatPartnerName(event: AccessibilityEvent, service: MyAccessibilityService) {
         runCatching {
-            // 方法 1: 尝试从事件文本中获取（窗口标题）
             currentChatPartnerIdentifier = getCurrentChatPartnerIdentifier()
-            val eventText = event.text?.firstOrNull()?.toString()
-            if (!eventText.isNullOrBlank() && eventText.length in 2..50) {
-                val oldName = currentChatPartnerName
-                currentChatPartnerName = eventText
-                currentChatPartnerIdentifier = extractPossibleAccountId(eventText)
-                if (oldName != eventText) {
-                    Log.d(tag, "聊天对象已更新：$oldName -> $currentChatPartnerName")
-                }
-                return
-            }
-
-            // 方法 2: 遍历界面查找标题栏
             val root = if (service.rootInActiveWindow.isEmpty()) getActiveWindowRoot()
             else service.rootInActiveWindow
-            
-            root?.let {
-                findChatPartnerName(it)?.let { name ->
-                    val oldName = currentChatPartnerName
-                    currentChatPartnerName = name
-                    currentChatPartnerIdentifier = currentChatPartnerIdentifier ?: extractPossibleAccountId(name)
-                    if (oldName != name) {
-                        Log.d(tag, "聊天对象已更新：$oldName -> $currentChatPartnerName")
-                    }
+
+            root?.let { rootNode ->
+                findChatPartnerName(rootNode)?.let { name ->
+                    updateResolvedChatPartner(name)
+                    return
                 }
+            }
+
+            val eventText = event.text
+                ?.mapNotNull { it?.toString()?.trim() }
+                ?.firstOrNull { isValidChatPartnerCandidate(it) }
+            if (eventText != null) {
+                updateResolvedChatPartner(eventText)
             }
         }.onFailure { exception ->
             Log.e(tag, "updateChatPartnerName 错误：${exception.message}")
@@ -1113,17 +1103,14 @@ abstract class BaseChatAppHandler : ChatAppHandler {
         
         for (node in topAreaNodes) {
             val text = node.text?.toString()
-            if (!text.isNullOrBlank() && text.length in 2..50) {
-                // 排除一些常见的非用户名文本
-                if (!isCommonUIText(text)) {
-                    return text
-                }
+            if (isValidChatPartnerCandidate(text)) {
+                return text!!.trim()
             }
-            
+
             // 也检查 contentDescription
             val desc = node.contentDescription?.toString()
-            if (!desc.isNullOrBlank() && desc.length in 2..50 && !isCommonUIText(desc)) {
-                return desc
+            if (isValidChatPartnerCandidate(desc)) {
+                return desc!!.trim()
             }
         }
         
@@ -1160,18 +1147,52 @@ abstract class BaseChatAppHandler : ChatAppHandler {
      * 判断是否是常见的 UI 文本（非用户名）
      */
   private fun isCommonUIText(text: String): Boolean {
+        val normalizedText = text.trim()
         val commonTexts = listOf(
             "返回", "发送", "取消", "确定", "完成", "编辑", "删除",
             "语音通话", "视频通话", "更多", "设置", "详情",
             "消息", "聊天", "联系人", "群聊", "讨论组",
             "正在输入...", "在线", "离线", "忙碌", "隐身"
         )
-        return commonTexts.any { text.contains(it, ignoreCase = true) }
+        if (commonTexts.any { normalizedText.contains(it, ignoreCase = true) }) {
+            return true
+        }
+        if (normalizedText.equals(packageName, ignoreCase = true)) {
+            return true
+        }
+        if (normalizedText.equals(getAppDisplayName(), ignoreCase = true)) {
+            return true
+        }
+        return getIgnoredChatPartnerTexts().any { normalizedText.equals(it, ignoreCase = true) }
     }
 
     /**
      * 实现接口方法：获取当前聊天对象的名称
      */
+    private fun isValidChatPartnerCandidate(text: String?): Boolean {
+        val normalizedText = text?.trim() ?: return false
+        if (normalizedText.length !in 2..50) {
+            return false
+        }
+        if (isCommonUIText(normalizedText)) {
+            return false
+        }
+        return true
+    }
+
+    private fun updateResolvedChatPartner(name: String) {
+        val normalizedName = name.trim()
+        if (!isValidChatPartnerCandidate(normalizedName)) {
+            return
+        }
+        val oldName = currentChatPartnerName
+        currentChatPartnerName = normalizedName
+        currentChatPartnerIdentifier = currentChatPartnerIdentifier ?: extractPossibleAccountId(normalizedName)
+        if (oldName != normalizedName) {
+            Log.d(tag, "聊天对象已更新：$oldName -> $currentChatPartnerName")
+        }
+    }
+
     private fun extractPossibleAccountId(text: String): String? {
         return Regex("\\d{5,16}").find(text)?.value
     }

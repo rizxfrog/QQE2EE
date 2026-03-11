@@ -42,6 +42,10 @@ interface ChatAppHandler {
 
     fun getCurrentChatPartnerName(): String?
 
+    fun getAppDisplayName(): String? = null
+
+    fun getIgnoredChatPartnerTexts(): Set<String> = emptySet()
+
     /**
      * 当该处理器被激活时调用（例如，用户打开了对应的 App）。
      * @param service 无障碍服务的实例，用于获取上下文、协程作用域等。
