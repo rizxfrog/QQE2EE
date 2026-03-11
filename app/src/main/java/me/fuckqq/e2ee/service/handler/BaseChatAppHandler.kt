@@ -582,7 +582,7 @@ abstract class BaseChatAppHandler : ChatAppHandler {
                     currentService.serviceScope.launch {
                         showToast(action.notice)
                     }
-                    encryptWithDefaultKey(action.payload, currentService.currentKey)
+                    encryptHandshakePayload(action.payload)
                 }
                 else -> {
                     CryptoManager.encrypt(
@@ -609,6 +609,10 @@ abstract class BaseChatAppHandler : ChatAppHandler {
         peer: me.fuckqq.e2ee.util.PeerDescriptor? = resolveCurrentPeerDescriptor()
     ): String {
         return SessionKeyManager.getActiveSharedKey(peer) ?: defaultKey
+    }
+
+    private fun encryptHandshakePayload(plaintext: String): String {
+        return CryptoManager.encrypt(plaintext, Constant.HANDSHAKE_BOOTSTRAP_KEY).applyCiphertextStyle()
     }
 
     private fun encryptWithDefaultKey(plaintext: String, defaultKey: String): String {
@@ -1009,18 +1013,26 @@ abstract class BaseChatAppHandler : ChatAppHandler {
             }
         }
 
+        val handshakePlaintext = CryptoManager.decrypt(
+            textToDecrypt,
+            Constant.HANDSHAKE_BOOTSTRAP_KEY
+        )
+        val handshakeAction = peer?.let {
+            handshakePlaintext?.let { plaintext ->
+                SessionKeyManager.handleIncomingPayload(it, plaintext)
+            }
+        }
+        if (handshakeAction != null) {
+            if (handshakeAction.payload != null) {
+                val encryptedReply = encryptHandshakePayload(handshakeAction.payload)
+                setTextAndSend(encryptedReply)
+            }
+            Log.d(tag, "Handshake processed -> ${handshakeAction.notice}")
+            return if (handshakeAction.type == HandshakeActionType.NO_OP) null else handshakeAction.notice
+        }
+
         for (key in currentService.cryptoKeys) {
             val decryptedText = CryptoManager.decrypt(textToDecrypt, key) ?: continue
-            val handshakeAction = peer?.let { SessionKeyManager.handleIncomingPayload(it, decryptedText) }
-            if (handshakeAction != null) {
-                if (handshakeAction.payload != null) {
-                    val encryptedReply = encryptWithDefaultKey(handshakeAction.payload, currentService.currentKey)
-                    setTextAndSend(encryptedReply)
-                }
-                Log.d(tag, "Handshake processed -> ${handshakeAction.notice}")
-                return if (handshakeAction.type == HandshakeActionType.NO_OP) null else handshakeAction.notice
-            }
-
             Log.d(tag, "Decrypt success -> $decryptedText")
             return decryptedText
         }
