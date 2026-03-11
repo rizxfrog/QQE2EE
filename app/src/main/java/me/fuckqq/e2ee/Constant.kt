@@ -41,6 +41,7 @@ object SettingKeys {
     // 控制弹出发送图片or文件视图的双击最大间隔时间
     val SHOW_ATTACHMENT_VIEW_DOUBLE_CLICK_THRESHOLD = longPreferencesKey("show_attachment_view_double_click_threshold")
     val CUSTOM_APPS = stringPreferencesKey("custom_apps")
+    val SESSION_STORE = stringPreferencesKey("session_store")
     //  当前密文风格
     val CIPHERTEXT_STYLE = stringPreferencesKey("ciphertext_style")
     // 存储风格文本的最小和最大词语数

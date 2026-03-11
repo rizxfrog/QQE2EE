@@ -38,6 +38,8 @@ interface ChatAppHandler {
      * 获取当前聊天对象的名称（联系人或群名）。
      * @return 当前聊天对象的名称，如果无法获取则返回 null。
      */
+    fun getCurrentChatPartnerIdentifier(): String? = null
+
     fun getCurrentChatPartnerName(): String?
 
     /**

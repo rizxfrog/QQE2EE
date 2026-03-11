@@ -21,6 +21,20 @@ android {
 //        setProperty("archivesBaseName", "QQE2EE-v$versionName")
     }
 
+    // ✨ 自定义 APK 输出文件名格式
+    applicationVariants.all {
+        val variant = this
+        val appName = "QQE2EE"
+        val buildType = variant.buildType.name
+        val versionName = variant.versionName
+        
+        // 设置输出文件名格式：QQE2EE-{versionName}-{buildType}.apk
+        variant.outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "${appName}-v${versionName}-${buildType}.apk"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true  //开启代码压缩、混淆、优化

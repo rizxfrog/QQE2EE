@@ -42,9 +42,11 @@ import me.fuckqq.e2ee.util.CryptoManager
 import me.fuckqq.e2ee.util.CryptoManager.applyCiphertextStyle
 import me.fuckqq.e2ee.util.CryptoManager.containsCiphertext
 import me.fuckqq.e2ee.util.CryptoUploader
+import me.fuckqq.e2ee.util.HandshakeActionType
 import me.fuckqq.e2ee.util.NCFileProtocol
 import me.fuckqq.e2ee.util.NCWindowManager
 import me.fuckqq.e2ee.util.ResultRelay
+import me.fuckqq.e2ee.util.SessionKeyManager
 import me.fuckqq.e2ee.util.findSingleNode
 import me.fuckqq.e2ee.util.formatFileSize
 import me.fuckqq.e2ee.util.getFileName
@@ -60,6 +62,10 @@ import java.io.File
 val LocalFileActionHandler = compositionLocalOf<((NCFileProtocol) -> Unit)?> { null }
 
 abstract class BaseChatAppHandler : ChatAppHandler {
+    companion object {
+        private const val SECRET_CHAT_COMMAND = "/secret chat"
+    }
+
     protected val tag = "NCBaseHandler"
 
     // 由子类提供具体应用的ID
@@ -92,6 +98,7 @@ abstract class BaseChatAppHandler : ChatAppHandler {
 
     // ✨ 新增：缓存当前聊天对象的名称（联系人或群名）
    private var currentChatPartnerName: String? = null
+    private var currentChatPartnerIdentifier: String? = null
 
     // ———————— 附件发送弹窗相关属性 ————————
 
@@ -192,6 +199,7 @@ abstract class BaseChatAppHandler : ChatAppHandler {
         cachedInputNode = null
         cachedMessageListNode = null
         currentChatPartnerName = null  // ✨ 清空聊天对象名称缓存
+        currentChatPartnerIdentifier = null
         removeOverlayView {
             // 在视图置空后，其他引用量也要置为空，方便gc回收
             this.service = null
@@ -207,7 +215,7 @@ abstract class BaseChatAppHandler : ChatAppHandler {
     private fun handleDecryption(sourceNode: AccessibilityNodeInfo?) {
         val node = sourceNode ?: return
         val text = node.text?.toString() ?: return
-        tryDecryptingText(text)?.let {
+        tryDecryptingIncomingText(text)?.let {
             Log.d(tag, "解密成功 -> $it")
             showDecryptionPopup(
                 decryptedText = it,
@@ -260,7 +268,7 @@ abstract class BaseChatAppHandler : ChatAppHandler {
 
             for (node in messageNodes) {
                 // 解密出内容，再做处理，否则直接跳过
-                tryDecryptingText(node.text?.toString())?.let { decryptedText ->
+                tryDecryptingIncomingText(node.text?.toString())?.let { decryptedText ->
                     val nodeBounds = Rect()
                     node.getBoundsInScreen(nodeBounds)
                     val cacheKey = decryptedText.hashCode().toString()   // key就直接哈希
@@ -527,11 +535,32 @@ abstract class BaseChatAppHandler : ChatAppHandler {
             val originalText = inputNode?.text?.toString()
 
             // 2. 加密文本
-            val encryptedText = if (originalText!!.containsCiphertext()) {
-                originalText
-            } else {
-                CryptoManager.encrypt(originalText, currentService.currentKey)
-                    .applyCiphertextStyle()
+            if (originalText.isNullOrBlank()) {
+                return
+            }
+
+            val peer = resolveCurrentPeerDescriptor()
+            val encryptedText = when {
+                originalText.containsCiphertext() -> originalText
+                originalText == SECRET_CHAT_COMMAND -> {
+                    val action = peer?.let { SessionKeyManager.initiateSecretChat(it) }
+                    if (action?.payload == null) {
+                        currentService.serviceScope.launch {
+                            showToast("Secret chat failed: current chat partner was not detected.")
+                        }
+                        return
+                    }
+                    currentService.serviceScope.launch {
+                        showToast(action.notice)
+                    }
+                    encryptWithDefaultKey(action.payload, currentService.currentKey)
+                }
+                else -> {
+                    CryptoManager.encrypt(
+                        originalText,
+                        resolveActiveEncryptionKey(currentService.currentKey, peer)
+                    ).applyCiphertextStyle()
+                }
             }
 
             // 3. 调用核心发送函数
@@ -540,6 +569,23 @@ abstract class BaseChatAppHandler : ChatAppHandler {
     }
 
     // 普通点击的发送逻辑 (用于标准模式的短按)
+    private fun resolveCurrentPeerDescriptor() = SessionKeyManager.buildPeerDescriptor(
+        packageName = packageName,
+        uniqueId = currentChatPartnerIdentifier,
+        displayName = currentChatPartnerName
+    )
+
+    private fun resolveActiveEncryptionKey(
+        defaultKey: String,
+        peer: me.fuckqq.e2ee.util.PeerDescriptor? = resolveCurrentPeerDescriptor()
+    ): String {
+        return SessionKeyManager.getActiveSharedKey(peer) ?: defaultKey
+    }
+
+    private fun encryptWithDefaultKey(plaintext: String, defaultKey: String): String {
+        return CryptoManager.encrypt(plaintext, defaultKey).applyCiphertextStyle()
+    }
+
     protected fun doNormalClick() {
         if (!isNodeValid(cachedSendBtnNode)) {
             val root = service?.rootInActiveWindow ?: return
@@ -811,9 +857,10 @@ abstract class BaseChatAppHandler : ChatAppHandler {
                         ?: return@launch
 
                 // 目前上传接口似乎不支持流式上传。
+                val activeKey = resolveActiveEncryptionKey(currentService.currentKey)
                 val result: NCFileProtocol = CryptoUploader.upload(
                     fileBytes = fileBytes,
-                    encryptionKey = currentService.currentKey,
+                    encryptionKey = activeKey,
                     fileName = getFileName(uri),
                     onProcess = { progressInt ->
                         // 将 0-100 的 Int 进度转换为 0.0-1.0 的 Float
@@ -846,7 +893,7 @@ abstract class BaseChatAppHandler : ChatAppHandler {
                 // 4. 上传成功，更新UI
                 updateAttachmentState { currentState ->
                     currentState.copy(
-                        result = result.toEncryptedString(currentService.currentKey),
+                        result = result.toEncryptedString(activeKey),
                         progress = null
                     )
                 }
@@ -911,6 +958,43 @@ abstract class BaseChatAppHandler : ChatAppHandler {
     }
 
     // 重置附件的状态
+    private fun tryDecryptingIncomingText(textToDecrypt: String?): String? {
+        if (textToDecrypt == null) return null
+        val currentService = service ?: return null
+        if (!textToDecrypt.containsCiphertext()) {
+            return null
+        }
+        Log.d(tag, "Detected ciphertext: $textToDecrypt")
+
+        val peer = resolveCurrentPeerDescriptor()
+        val sessionKey = resolveActiveEncryptionKey(currentService.currentKey, peer)
+        if (sessionKey != currentService.currentKey) {
+            val sessionPlaintext = CryptoManager.decrypt(textToDecrypt, sessionKey)
+            if (sessionPlaintext != null) {
+                Log.d(tag, "Session decrypt success -> $sessionPlaintext")
+                return sessionPlaintext
+            }
+        }
+
+        for (key in currentService.cryptoKeys) {
+            val decryptedText = CryptoManager.decrypt(textToDecrypt, key) ?: continue
+            val handshakeAction = peer?.let { SessionKeyManager.handleIncomingPayload(it, decryptedText) }
+            if (handshakeAction != null) {
+                if (handshakeAction.payload != null) {
+                    val encryptedReply = encryptWithDefaultKey(handshakeAction.payload, currentService.currentKey)
+                    setTextAndSend(encryptedReply)
+                }
+                Log.d(tag, "Handshake processed -> ${handshakeAction.notice}")
+                return if (handshakeAction.type == HandshakeActionType.NO_OP) null else handshakeAction.notice
+            }
+
+            Log.d(tag, "Decrypt success -> $decryptedText")
+            return decryptedText
+        }
+
+        return null
+    }
+
     fun resetAttachmentState() {
         attachmentState = AttachmentState()
     }
@@ -940,10 +1024,12 @@ abstract class BaseChatAppHandler : ChatAppHandler {
   private fun updateChatPartnerName(event: AccessibilityEvent, service: MyAccessibilityService) {
         runCatching {
             // 方法 1: 尝试从事件文本中获取（窗口标题）
+            currentChatPartnerIdentifier = getCurrentChatPartnerIdentifier()
             val eventText = event.text?.firstOrNull()?.toString()
             if (!eventText.isNullOrBlank() && eventText.length in 2..50) {
                 val oldName = currentChatPartnerName
                 currentChatPartnerName = eventText
+                currentChatPartnerIdentifier = extractPossibleAccountId(eventText)
                 if (oldName != eventText) {
                     Log.d(tag, "聊天对象已更新：$oldName -> $currentChatPartnerName")
                 }
@@ -958,6 +1044,7 @@ abstract class BaseChatAppHandler : ChatAppHandler {
                 findChatPartnerName(it)?.let { name ->
                     val oldName = currentChatPartnerName
                     currentChatPartnerName = name
+                    currentChatPartnerIdentifier = currentChatPartnerIdentifier ?: extractPossibleAccountId(name)
                     if (oldName != name) {
                         Log.d(tag, "聊天对象已更新：$oldName -> $currentChatPartnerName")
                     }
@@ -1040,5 +1127,11 @@ abstract class BaseChatAppHandler : ChatAppHandler {
     /**
      * 实现接口方法：获取当前聊天对象的名称
      */
+    private fun extractPossibleAccountId(text: String): String? {
+        return Regex("\\d{5,16}").find(text)?.value
+    }
+
+    override fun getCurrentChatPartnerIdentifier(): String? = currentChatPartnerIdentifier
+
     override fun getCurrentChatPartnerName(): String? = currentChatPartnerName
 }
