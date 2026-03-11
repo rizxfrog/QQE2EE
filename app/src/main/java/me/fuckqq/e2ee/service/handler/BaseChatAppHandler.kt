@@ -90,6 +90,9 @@ abstract class BaseChatAppHandler : ChatAppHandler {
     // Value: 管理这个气泡弹窗的 WindowPopupManager 实例
     private val immersiveDecryptionCache = mutableMapOf<String, NCWindowManager>()
 
+    // ✨ 新增：缓存当前聊天对象的名称（联系人或群名）
+   private var currentChatPartnerName: String? = null
+
     // ———————— 附件发送弹窗相关属性 ————————
 
     // 拿来判断是否拉起图片、视频弹窗。
@@ -104,6 +107,11 @@ abstract class BaseChatAppHandler : ChatAppHandler {
 
 
     override fun onAccessibilityEvent(event: AccessibilityEvent, service: MyAccessibilityService) {
+        // ✨ 新增：监听窗口状态变化，更新聊天对象名称
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            updateChatPartnerName(event, service)
+        }
+        
         // 悬浮窗管理逻辑
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED || event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             if (service.useAutoEncryption) {
@@ -183,6 +191,7 @@ abstract class BaseChatAppHandler : ChatAppHandler {
         cachedSendBtnNode = null
         cachedInputNode = null
         cachedMessageListNode = null
+        currentChatPartnerName = null  // ✨ 清空聊天对象名称缓存
         removeOverlayView {
             // 在视图置空后，其他引用量也要置为空，方便gc回收
             this.service = null
@@ -920,4 +929,116 @@ abstract class BaseChatAppHandler : ChatAppHandler {
             Toast.makeText(service, string, duration).show()
         }
     }
+
+    // ✨ 新增：聊天对象名称相关方法
+
+    /**
+     * ✨ 更新当前聊天对象名称（联系人或群名）
+     * @param event 窗口状态变化事件
+     * @param service 无障碍服务实例
+     */
+  private fun updateChatPartnerName(event: AccessibilityEvent, service: MyAccessibilityService) {
+        runCatching {
+            // 方法 1: 尝试从事件文本中获取（窗口标题）
+            val eventText = event.text?.firstOrNull()?.toString()
+            if (!eventText.isNullOrBlank() && eventText.length in 2..50) {
+                val oldName = currentChatPartnerName
+                currentChatPartnerName = eventText
+                if (oldName != eventText) {
+                    Log.d(tag, "聊天对象已更新：$oldName -> $currentChatPartnerName")
+                }
+                return
+            }
+
+            // 方法 2: 遍历界面查找标题栏
+            val root = if (service.rootInActiveWindow.isEmpty()) getActiveWindowRoot()
+            else service.rootInActiveWindow
+            
+            root?.let {
+                findChatPartnerName(it)?.let { name ->
+                    val oldName = currentChatPartnerName
+                    currentChatPartnerName = name
+                    if (oldName != name) {
+                        Log.d(tag, "聊天对象已更新：$oldName -> $currentChatPartnerName")
+                    }
+                }
+            }
+        }.onFailure { exception ->
+            Log.e(tag, "updateChatPartnerName 错误：${exception.message}")
+        }
+    }
+
+    /**
+     * ✨ 在界面中查找聊天对象名称
+     * 通常在顶部标题栏的 TextView 中
+     * @param rootNode 根节点
+     * @return 找到的聊天对象名称，如果未找到则返回 null
+     */
+  private fun findChatPartnerName(rootNode: AccessibilityNodeInfo): String? {
+        // 策略 1: 查找顶部区域内的 TextView，通常标题在这里
+        val topAreaNodes = mutableListOf<AccessibilityNodeInfo>()
+        collectNodesInTopArea(rootNode, topAreaNodes, maxHeight = 300)
+        
+        for (node in topAreaNodes) {
+            val text = node.text?.toString()
+            if (!text.isNullOrBlank() && text.length in 2..50) {
+                // 排除一些常见的非用户名文本
+                if (!isCommonUIText(text)) {
+                    return text
+                }
+            }
+            
+            // 也检查 contentDescription
+            val desc = node.contentDescription?.toString()
+            if (!desc.isNullOrBlank() && desc.length in 2..50 && !isCommonUIText(desc)) {
+                return desc
+            }
+        }
+        
+        return null
+    }
+
+    /**
+     * 收集屏幕顶部区域内的所有节点
+     */
+  private fun collectNodesInTopArea(
+        node: AccessibilityNodeInfo,
+        results: MutableList<AccessibilityNodeInfo>,
+        maxHeight: Int
+    ) {
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        
+        // 如果在顶部区域内，且是 TextView 类，加入结果
+        if (bounds.top < maxHeight && 
+            node.className?.toString()?.contains("TextView", ignoreCase = true) == true) {
+            results.add(node)
+        }
+        
+        // 递归检查子节点
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { child ->
+                collectNodesInTopArea(child, results, maxHeight)
+                child.recycle()
+            }
+        }
+    }
+
+    /**
+     * 判断是否是常见的 UI 文本（非用户名）
+     */
+  private fun isCommonUIText(text: String): Boolean {
+        val commonTexts = listOf(
+            "返回", "发送", "取消", "确定", "完成", "编辑", "删除",
+            "语音通话", "视频通话", "更多", "设置", "详情",
+            "消息", "聊天", "联系人", "群聊", "讨论组",
+            "正在输入...", "在线", "离线", "忙碌", "隐身"
+        )
+        return commonTexts.any { text.contains(it, ignoreCase = true) }
+    }
+
+    /**
+     * 实现接口方法：获取当前聊天对象的名称
+     */
+    override fun getCurrentChatPartnerName(): String? = currentChatPartnerName
 }

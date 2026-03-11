@@ -15,33 +15,39 @@ interface ChatAppHandler {
     val packageName: String
 
     /**
-     * 聊天界面输入框的资源ID。
+     * 聊天界面输入框的资源 ID。
      */
     val inputId: String
 
     /**
-     * 聊天界面发送按钮的资源ID。
+     * 聊天界面发送按钮的资源 ID。
      */
     val sendBtnId: String
 
     /**
-     * 气泡消息的ID
+     * 气泡消息的 ID
      */
     val messageTextId: String
 
     /**
-     * 存放消息列表的className，QQ的这个class无ID，则不提供
+     * 存放消息列表的 className，QQ 的这个 class 无 ID，则不提供
      */
     val messageListClassName: String
 
     /**
-     * 当该处理器被激活时调用（例如，用户打开了对应的App）。
+     * 获取当前聊天对象的名称（联系人或群名）。
+     * @return 当前聊天对象的名称，如果无法获取则返回 null。
+     */
+    fun getCurrentChatPartnerName(): String?
+
+    /**
+     * 当该处理器被激活时调用（例如，用户打开了对应的 App）。
      * @param service 无障碍服务的实例，用于获取上下文、协程作用域等。
      */
     fun onHandlerActivated(service: MyAccessibilityService)
 
     /**
-     * 当该处理器被停用时调用（例如，用户离开了对应的App）。
+     * 当该处理器被停用时调用（例如，用户离开了对应的 App）。
      */
     fun onHandlerDeactivated()
 
