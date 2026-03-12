@@ -153,6 +153,15 @@ class MyAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        runCatching {
+            Log.d(tag, "Accessibility service connected")
+            startKeepAliveService()
+            observeAppSettings()
+            showScannerIfNeed()
+        }.onFailure { exception ->
+            Log.e(tag, "onServiceConnected initialization failed", exception)
+        }
+        return
         Log.d(tag, "无障碍服务已连接！")
         // startPeriodicScreenScan()// 做debug扫描
         // 🎯 关键：启动保活服务
@@ -180,6 +189,41 @@ class MyAccessibilityService : AccessibilityService() {
 
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        runCatching {
+            val eventPackage = event.packageName?.toString() ?: "unknown"
+
+            if (combinedHandlerMap.containsKey(eventPackage) && enabledAppsCache[eventPackage] == true) {
+                if (currentHandler?.packageName != eventPackage) {
+                    currentHandler?.onHandlerDeactivated()
+                    currentHandler = combinedHandlerMap[eventPackage]
+                    currentHandler?.onHandlerActivated(this)
+                }
+
+                currentHandler?.onAccessibilityEvent(event, this)
+            } else {
+                val activeWindowPackage = rootInActiveWindow?.packageName?.toString()
+                if (
+                    activeWindowPackage != null &&
+                    currentHandler != null &&
+                    currentHandler?.packageName != activeWindowPackage &&
+                    !isSystemApp(activeWindowPackage)
+                ) {
+                    Log.d(
+                        tag,
+                        "Detected app switch from [${currentHandler?.packageName}] to [$activeWindowPackage], deactivating handler."
+                    )
+                    currentHandler?.onHandlerDeactivated()
+                    currentHandler = null
+                }
+            }
+        }.onFailure { exception ->
+            Log.e(
+                tag,
+                "onAccessibilityEvent failed, event=${event.eventType}, package=${event.packageName}",
+                exception
+            )
+        }
+        return
 
         // debug逻辑，会变卡
 //        if (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED

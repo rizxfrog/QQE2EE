@@ -9,7 +9,7 @@
     android:canRequestTouchExplorationMode="true"
     android:canRetrieveWindowContent="true"
     android:isAccessibilityTool="true"
-    android:settingsActivity="me.fuckqq.QQE2EE.MainActivity"
+    android:settingsActivity="me.fuckqq.e2ee.MainActivity"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="100"
     android:summary="@string/accessibility_service_about"/>
