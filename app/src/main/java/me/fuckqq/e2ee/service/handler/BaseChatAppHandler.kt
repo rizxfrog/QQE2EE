@@ -67,7 +67,10 @@ val LocalFileActionHandler = compositionLocalOf<((NCFileProtocol) -> Unit)?> { n
 
 abstract class BaseChatAppHandler : ChatAppHandler {
     companion object {
+        // 开启E2EE加密
         private const val SECRET_CHAT_COMMAND = "/secret chat"
+        // 删除E2EE密钥
+        private const val END_CHAT_COMMAND = "/end chat"
         private const val SECRET_CHAT_BADGE_TAG = "secret_chat_badge"
     }
 
@@ -574,7 +577,9 @@ abstract class BaseChatAppHandler : ChatAppHandler {
 
             val peer = resolveCurrentPeerDescriptor()
             val encryptedText = when {
+                // 如果是密文，则不加密
                 originalText.containsCiphertext() -> originalText
+                // 如果是`/secrete chat`命令，则发起密聊
                 originalText == SECRET_CHAT_COMMAND -> {
                     val action = peer?.let { SessionKeyManager.initiateSecretChat(it) }
                     if (action?.payload == null) {
@@ -587,6 +592,15 @@ abstract class BaseChatAppHandler : ChatAppHandler {
                         showToast(action.notice)
                     }
                     encryptHandshakePayload(action.payload)
+                }
+                // 如果是`/end chat`命令，则结束密聊，删除密钥。对方解析这条消息时也会删除密钥
+                originalText == END_CHAT_COMMAND -> {
+                    val endChatCiphertext = buildEndChatCiphertext(peer)
+                        ?: return
+                    currentService.serviceScope.launch {
+                        showToast("Secret chat ended locally.")
+                    }
+                    endChatCiphertext
                 }
                 else -> {
                     CryptoManager.encrypt(
@@ -635,6 +649,32 @@ abstract class BaseChatAppHandler : ChatAppHandler {
 
     private fun isSecretChatActiveForCurrentPeer(): Boolean {
         return SessionKeyManager.getActiveSharedKey(resolveCurrentPeerDescriptor()) != null
+    }
+
+    private fun buildEndChatCiphertext(peer: me.fuckqq.e2ee.util.PeerDescriptor?): String? {
+        if (peer == null) {
+            service?.serviceScope?.launch {
+                showToast("End chat failed: current chat partner was not detected.")
+            }
+            return null
+        }
+        val sessionKey = SessionKeyManager.getActiveSharedKey(peer)
+        if (sessionKey == null) {
+            service?.serviceScope?.launch {
+                showToast("No active secret chat found for current chat.")
+            }
+            return null
+        }
+        val ciphertext = CryptoManager.encrypt(END_CHAT_COMMAND, sessionKey).applyCiphertextStyle()
+        SessionKeyManager.removeSession(peer.hash)
+        refreshSecretChatBadge()
+        return ciphertext
+    }
+
+    private fun refreshSecretChatBadge() {
+        service?.serviceScope?.launch(Dispatchers.Main) {
+            updateOverlaySecretChatBadge()
+        }
     }
 
     protected fun doNormalClick() {
@@ -1022,6 +1062,13 @@ abstract class BaseChatAppHandler : ChatAppHandler {
         if (sessionKey != currentService.currentKey) {
             val sessionPlaintext = CryptoManager.decrypt(textToDecrypt, sessionKey)
             if (sessionPlaintext != null) {
+                if (sessionPlaintext == END_CHAT_COMMAND && peer != null) {
+                    SessionKeyManager.removeSession(peer.hash)
+                    refreshSecretChatBadge()
+                    val notice = "Secret chat ended by ${peer.displayName}."
+                    Log.d(tag, notice)
+                    return notice
+                }
                 Log.d(tag, "Session decrypt success -> $sessionPlaintext")
                 return sessionPlaintext
             }
